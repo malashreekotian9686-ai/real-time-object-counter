@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Object Counter</title>
+    <meta name="description" content="Real-time AI-powered object detection and counting dashboard using YOLOv8.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────────────────── -->
+<div class="sidebar">
+    <h2>📷 Object Counter</h2>
+    <ul id="nav-list">
+        <li class="nav-item active" data-section="dashboard">🏠 Dashboard</li>
+        <li class="nav-item" data-section="statistics">📊 Live Statistics</li>
+        <li class="nav-item" data-section="gallery">🖼️ Captured Images</li>
+        <li class="nav-item" data-section="reports">📄 Reports</li>
+        <li class="nav-item" data-section="about">ℹ️ About</li>
+    </ul>
+</div>
+
+<!-- ── Main Content ────────────────────────────────────────── -->
+<div class="main-content">
+
+    <!-- ════════ SECTION: Dashboard ════════ -->
+    <section id="sec-dashboard" class="page-section active-section">
+
+        <h1>Real-Time Object Counter</h1>
+        <div id="datetime"></div>
+
+        <h3 id="status">
+            <span class="dot"></span> Detection Running
+        </h3>
+
+        <!-- Camera Feed -->
+        <img src="{{ url_for('video_feed') }}" alt="Camera Feed" class="video-feed" id="videoFeed">
+
+        <!-- Buttons -->
+        <div class="btn-container">
+            <button id="startBtn" onclick="startDetection()">▶ Start Detection</button>
+            <button id="stopBtn" onclick="stopDetection()">■ Stop Detection</button>
+            <button id="captureBtn" onclick="captureImage()">📸 Capture Screenshot</button>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="stats">
+            <div class="card">
+                <h3>Total Objects</h3>
+                <p id="card-total">0</p>
+            </div>
+            <div class="card">
+                <h3>Persons</h3>
+                <p id="persons">0</p>
+            </div>
+            <div class="card">
+                <h3>Screenshots</h3>
+                <p id="shots">0</p>
+            </div>
+        </div>
+
+        <!-- Detected Objects -->
+        <div class="object-panel">
+            <h2>Detected Objects</h2>
+            <div id="objectCounts">Waiting for detection...</div>
+        </div>
+
+        <!-- Recent Captures -->
+        <div class="recent-captures">
+            <h2>Recent Captures</h2>
+            <div id="captureList" class="capture-grid">Loading...</div>
+        </div>
+
+    </section>
+
+    <!-- ════════ SECTION: Live Statistics ════════ -->
+    <section id="sec-statistics" class="page-section">
+
+        <h1>📊 Live Statistics</h1>
+        <div id="datetime-stats" class="datetime-sub"></div>
+
+        <!-- Mini stat cards -->
+        <div class="stats">
+            <div class="card">
+                <h3>Total Objects</h3>
+                <p id="stat-total">0</p>
+            </div>
+            <div class="card">
+                <h3>Persons</h3>
+                <p id="stat-persons">0</p>
+            </div>
+            <div class="card">
+                <h3>Screenshots</h3>
+                <p id="stat-shots">0</p>
+            </div>
+        </div>
+
+        <!-- Bar chart area -->
+        <div class="object-panel">
+            <h2>Live Object Breakdown</h2>
+            <div id="stat-bar-chart" class="bar-chart-area">
+                <p style="color:var(--text-muted); padding:20px;">Waiting for detection data...</p>
+            </div>
+        </div>
+
+        <!-- Count history table -->
+        <div class="object-panel" style="margin-top:24px;">
+            <h2>Detailed Count Table</h2>
+            <div id="stat-table">
+                <p style="color:var(--text-muted); padding:20px;">No objects detected yet.</p>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- ════════ SECTION: Captured Images ════════ -->
+    <section id="sec-gallery" class="page-section">
+
+        <h1>🖼️ Captured Images</h1>
+        <div class="gallery-toolbar">
+            <span id="gallery-count" style="color:var(--text-muted); font-size:14px;">Loading...</span>
+            <button id="refreshGalleryBtn" onclick="loadFullGallery()" style="padding:8px 20px; font-size:13px; border-radius:50px; background:linear-gradient(135deg,#3b82f6,#2563eb); color:white; border:none; cursor:pointer;">🔄 Refresh</button>
+        </div>
+        <div id="fullGallery" class="capture-grid full-gallery">
+            <p style="color:var(--text-muted);">Loading images...</p>
+        </div>
+
+        <!-- Lightbox -->
+        <div id="lightbox" class="lightbox" onclick="closeLightbox()">
+            <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+            <img id="lightbox-img" src="" alt="Full Size Capture">
+            <p id="lightbox-caption" class="lightbox-caption"></p>
+        </div>
+
+    </section>
+
+    <!-- ════════ SECTION: Reports ════════ -->
+    <section id="sec-reports" class="page-section">
+
+        <h1>📄 Session Report</h1>
+
+        <div class="report-grid">
+
+            <div class="report-card">
+                <div class="report-card-icon">🕐</div>
+                <div class="report-card-label">Session Start</div>
+                <div class="report-card-value" id="rep-start">—</div>
+            </div>
+
+            <div class="report-card">
+                <div class="report-card-icon">⏱️</div>
+                <div class="report-card-label">Duration</div>
+                <div class="report-card-value" id="rep-duration">—</div>
+            </div>
+
+            <div class="report-card">
+                <div class="report-card-icon">🎯</div>
+                <div class="report-card-label">Total Detections</div>
+                <div class="report-card-value" id="rep-total">—</div>
+            </div>
+
+            <div class="report-card">
+                <div class="report-card-icon">📸</div>
+                <div class="report-card-label">Screenshots Saved</div>
+                <div class="report-card-value" id="rep-shots">—</div>
+            </div>
+
+            <div class="report-card">
+                <div class="report-card-icon">🟢</div>
+                <div class="report-card-label">Detection Status</div>
+                <div class="report-card-value" id="rep-status">—</div>
+            </div>
+
+        </div>
+
+        <!-- Object breakdown table -->
+        <div class="object-panel" style="margin-top:30px;">
+            <h2>Object Type Breakdown</h2>
+            <div id="rep-breakdown">
+                <p style="color:var(--text-muted); padding:20px;">No data yet.</p>
+            </div>
+        </div>
+
+        <div style="text-align:center; margin-top:24px;">
+            <button onclick="loadReport()" style="padding:12px 32px; border-radius:50px; background:linear-gradient(135deg,#8b5cf6,#6d28d9); color:white; border:none; cursor:pointer; font-size:15px; font-weight:600; box-shadow:0 4px 20px rgba(139,92,246,0.4);">🔄 Refresh Report</button>
+        </div>
+
+    </section>
+
+    <!-- ════════ SECTION: About ════════ -->
+    <section id="sec-about" class="page-section">
+
+        <h1>ℹ️ About</h1>
+
+        <div class="about-card">
+            <div class="about-logo">🤖</div>
+            <h2 class="about-title">Real-Time Object Counter</h2>
+            <p class="about-sub">AI-powered live detection &amp; counting system</p>
+
+            <div class="about-divider"></div>
+
+            <div class="about-info-grid">
+                <div class="about-info-item">
+                    <span class="about-info-label">Model</span>
+                    <span class="about-info-value">YOLOv8n</span>
+                </div>
+                <div class="about-info-item">
+                    <span class="about-info-label">Framework</span>
+                    <span class="about-info-value">Flask + OpenCV</span>
+                </div>
+                <div class="about-info-item">
+                    <span class="about-info-label">Frontend</span>
+                    <span class="about-info-value">HTML5 + CSS3 + JS</span>
+                </div>
+                <div class="about-info-item">
+                    <span class="about-info-label">Detection</span>
+                    <span class="about-info-value">Real-time MJPEG stream</span>
+                </div>
+                <div class="about-info-item">
+                    <span class="about-info-label">Purpose</span>
+                    <span class="about-info-value">II Semester Project</span>
+                </div>
+                <div class="about-info-item">
+                    <span class="about-info-label">Version</span>
+                    <span class="about-info-value">1.0.0</span>
+                </div>
+            </div>
+
+            <div class="about-divider"></div>
+
+            <div class="about-features">
+                <div class="feature-pill">✅ Live Camera Feed</div>
+                <div class="feature-pill">✅ YOLOv8 Detection</div>
+                <div class="feature-pill">✅ Object Counting</div>
+                <div class="feature-pill">✅ Screenshot Capture</div>
+                <div class="feature-pill">✅ Session Reports</div>
+                <div class="feature-pill">✅ Image Gallery</div>
+            </div>
+
+            <p class="about-footer">Built with ❤️ using Python, Flask &amp; Ultralytics YOLO</p>
+        </div>
+
+    </section>
+
+</div><!-- /main-content -->
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<script>
+
+/* ── Section Navigation ──────────────────────────────────────── */
+const navItems = document.querySelectorAll('.nav-item');
+const sections = document.querySelectorAll('.page-section');
+
+navItems.forEach(item => {
+    item.addEventListener('click', () => {
+        const target = item.dataset.section;
+
+        // Update active nav item
+        navItems.forEach(n => n.classList.remove('active'));
+        item.classList.add('active');
+
+        // Show target section, hide others
+        sections.forEach(sec => {
+            sec.classList.remove('active-section');
+            if (sec.id === 'sec-' + target) {
+                sec.classList.add('active-section');
+            }
+        });
+
+        // Trigger section-specific loads
+        if (target === 'gallery') loadFullGallery();
+        if (target === 'reports') loadReport();
+    });
+});
+
+/* ── Detection Controls ──────────────────────────────────────── */
+function startDetection() {
+    fetch('/start')
+        .then(r => r.text())
+        .then(() => {
+            showToast('▶ Detection started!', 'green');
+            updateStatus();
+        });
+}
+
+function stopDetection() {
+    fetch('/stop')
+        .then(r => r.text())
+        .then(() => {
+            showToast('■ Detection stopped.', 'red');
+            updateStatus();
+        });
+}
+
+function captureImage() {
+    fetch('/capture')
+        .then(r => r.text())
+        .then(data => {
+            showToast('📸 ' + data, 'blue');
+            setTimeout(loadCaptures, 600);
+        });
+}
+
+/* ── Status & Counts (Dashboard) ─────────────────────────────── */
+function updateStatus() {
+    fetch('/status')
+        .then(r => r.json())
+        .then(data => {
+            const dotClass = data.running ? 'dot' : 'dot dot-red';
+            const label    = data.running ? 'Detection Running' : 'Detection Stopped';
+            const statusEl = document.getElementById('status');
+            if (statusEl) {
+                statusEl.innerHTML = `<span class="${dotClass}"></span> ${label}`;
+                statusEl.style.background    = data.running ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)';
+                statusEl.style.borderColor   = data.running ? 'rgba(16,185,129,0.35)' : 'rgba(239,68,68,0.35)';
+                statusEl.style.color         = data.running ? '#6ee7b7' : '#fca5a5';
+            }
+
+            const set = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
+            set('card-total', data.total);
+            set('shots', data.screenshots);
+            set('stat-total', data.total);
+            set('stat-shots', data.screenshots);
+        });
+}
+
+function updateCounts() {
+    fetch('/counts')
+        .then(r => r.json())
+        .then(data => {
+            let html = '';
+            let personCount = 0;
+            let total = 0;
+
+            // Dashboard object rows
+            for (let obj in data) {
+                html += `<div>
+                    <span>${capitalize(obj)}</span>
+                    <span>${data[obj]}</span>
+                </div>`;
+                total += data[obj];
+                if (obj === 'person') personCount = data[obj];
+            }
+
+            const oc = document.getElementById('objectCounts');
+            if (oc) oc.innerHTML = html || '<p style="color:var(--text-muted);padding:10px;">No objects detected.</p>';
+
+            const set = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
+            set('persons', personCount);
+            set('card-total', total);
+
+            // Statistics section
+            set('stat-persons', personCount);
+            set('stat-total', total);
+
+            // Bar chart
+            buildBarChart(data, total);
+
+            // Stat table
+            buildStatTable(data);
+        });
+}
+
+function buildBarChart(data, total) {
+    const el = document.getElementById('stat-bar-chart');
+    if (!el) return;
+    if (!total) {
+        el.innerHTML = '<p style="color:var(--text-muted);padding:20px;">No objects detected yet.</p>';
+        return;
+    }
+
+    const COLORS = ['#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#ec4899','#84cc16'];
+    let html = '';
+    let i = 0;
+    for (let obj in data) {
+        const pct = total > 0 ? ((data[obj] / total) * 100).toFixed(1) : 0;
+        const col = COLORS[i % COLORS.length];
+        html += `
+        <div class="bar-row">
+            <div class="bar-label">${capitalize(obj)}</div>
+            <div class="bar-track">
+                <div class="bar-fill" style="width:${pct}%; background:${col};"></div>
+            </div>
+            <div class="bar-value">${data[obj]} <span style="color:var(--text-muted);font-size:12px;">(${pct}%)</span></div>
+        </div>`;
+        i++;
+    }
+    el.innerHTML = html;
+}
+
+function buildStatTable(data) {
+    const el = document.getElementById('stat-table');
+    if (!el) return;
+    if (!Object.keys(data).length) {
+        el.innerHTML = '<p style="color:var(--text-muted);padding:20px;">No objects detected yet.</p>';
+        return;
+    }
+    let html = `
+    <table class="stat-table">
+        <thead><tr><th>#</th><th>Object Type</th><th>Count</th><th>Status</th></tr></thead>
+        <tbody>`;
+    let i = 1;
+    for (let obj in data) {
+        html += `<tr>
+            <td>${i++}</td>
+            <td>${capitalize(obj)}</td>
+            <td><strong>${data[obj]}</strong></td>
+            <td><span class="badge-active">Active</span></td>
+        </tr>`;
+    }
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+/* ── Recent Captures (Dashboard) ─────────────────────────────── */
+function loadCaptures() {
+    fetch('/captures')
+        .then(r => r.json())
+        .then(data => {
+            let html = '';
+            data.forEach(file => {
+                html += `<img src="/captures/${file}" class="capture-img" onclick="openLightbox('/captures/${file}','${file}')" title="${file}">`;
+            });
+            const el = document.getElementById('captureList');
+            if (el) el.innerHTML = html || '<p style="color:var(--text-muted);">No captures yet.</p>';
+        });
+}
+
+/* ── Full Gallery ─────────────────────────────────────────────── */
+function loadFullGallery() {
+    const el = document.getElementById('fullGallery');
+    const cnt = document.getElementById('gallery-count');
+    if (el) el.innerHTML = '<p style="color:var(--text-muted);">Loading...</p>';
+
+    fetch('/captures/all')
+        .then(r => r.json())
+        .then(data => {
+            if (!el) return;
+            if (cnt) cnt.innerText = `${data.length} image${data.length !== 1 ? 's' : ''} found`;
+            if (!data.length) {
+                el.innerHTML = '<div class="gallery-empty"><div style="font-size:60px;">📭</div><p>No captured images yet.</p><p style="color:var(--text-muted);font-size:13px;">Use the Dashboard to capture screenshots.</p></div>';
+                return;
+            }
+            let html = '';
+            data.forEach(file => {
+                html += `
+                <div class="gallery-item" onclick="openLightbox('/captures/${file}','${file}')">
+                    <img src="/captures/${file}" alt="${file}">
+                    <div class="gallery-item-overlay">
+                        <span>🔍 View</span>
+                    </div>
+                    <div class="gallery-item-name">${file}</div>
+                </div>`;
+            });
+            el.innerHTML = html;
+        });
+}
+
+/* ── Lightbox ─────────────────────────────────────────────────── */
+function openLightbox(src, caption) {
+    const lb = document.getElementById('lightbox');
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox-caption').innerText = caption;
+    lb.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+    const lb = document.getElementById('lightbox');
+    lb.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeLightbox();
+});
+
+/* ── Reports ─────────────────────────────────────────────────── */
+function loadReport() {
+    fetch('/report')
+        .then(r => r.json())
+        .then(data => {
+            const set = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
+            set('rep-start',    data.session_start);
+            set('rep-duration', data.duration);
+            set('rep-total',    data.total_objects_detected);
+            set('rep-shots',    data.screenshots_taken);
+            set('rep-status',   data.detection_running ? '🟢 Running' : '🔴 Stopped');
+
+            // Breakdown table
+            const bd = document.getElementById('rep-breakdown');
+            if (bd) {
+                const objs = data.object_breakdown;
+                if (!objs || !Object.keys(objs).length) {
+                    bd.innerHTML = '<p style="color:var(--text-muted);padding:20px;">No detections this session.</p>';
+                } else {
+                    let html = '<table class="stat-table"><thead><tr><th>Object</th><th>Count</th></tr></thead><tbody>';
+                    for (let obj in objs) {
+                        html += `<tr><td>${capitalize(obj)}</td><td><strong>${objs[obj]}</strong></td></tr>`;
+                    }
+                    html += '</tbody></table>';
+                    bd.innerHTML = html;
+                }
+            }
+        });
+}
+
+/* ── Time Display ─────────────────────────────────────────────── */
+function updateTime() {
+    const now = new Date();
+    const str = now.toLocaleDateString() + ' | ' + now.toLocaleTimeString();
+    ['datetime', 'datetime-stats'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = str;
+    });
+}
+
+/* ── Toast Notification ───────────────────────────────────────── */
+function showToast(msg, color) {
+    const colors = {
+        green: { bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.4)', text: '#6ee7b7' },
+        red:   { bg: 'rgba(239,68,68,0.15)',  border: 'rgba(239,68,68,0.4)',  text: '#fca5a5' },
+        blue:  { bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.4)', text: '#93c5fd' },
+    };
+    const c = colors[color] || colors.blue;
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        position:fixed; top:24px; right:24px; z-index:9999;
+        padding:14px 22px; border-radius:12px; font-size:14px; font-weight:600;
+        background:${c.bg}; border:1px solid ${c.border}; color:${c.text};
+        backdrop-filter:blur(16px); box-shadow:0 8px 30px rgba(0,0,0,0.4);
+        animation: toastIn 0.3s ease;
+    `;
+    toast.innerText = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+/* ── Utilities ─────────────────────────────────────────────────── */
+function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/* ── Intervals ─────────────────────────────────────────────────── */
+setInterval(updateStatus, 1000);
+setInterval(updateCounts, 1000);
+setInterval(updateTime,   1000);
+setInterval(loadCaptures, 2000);
+
+// Initial calls
+updateStatus();
+updateCounts();
+updateTime();
+loadCaptures();
+
+</script>
+
+</body>
+</html>
